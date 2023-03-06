@@ -1,7 +1,7 @@
 # geojson2presentation
-GeoJSON を PowerPoint のスライドへ
+GeoJSON を PowerPoint のスライドへ変換するツール。
 
-サンプル（MS PowerPoint で表示）
+Sample(shown on Microsoft PowerPoint)
 ![sample slide](sample.png "sample slide")
 
 ## Node
