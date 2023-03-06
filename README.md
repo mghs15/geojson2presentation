@@ -1,6 +1,9 @@
 # geojson2presentation
 GeoJSON を PowerPoint のスライドへ
 
+サンプル（MS PowerPoint で表示）
+![sample slide](sample.png "sample slide")
+
 ## Node
 
 Edit `mkSlideXml.js`.
