@@ -19,11 +19,12 @@ And, run it.
 node mkSlideXml.js > slide1.xml
 ```
 
-Make a new pptx file, change filename extension ".pptx" to ".zip", and decompress the file.
+Make a new pptx file, change the filename extension `.pptx` to `.zip`, and decompress the file. 
 
-Replace "./slide/ppt/slides/slide1.xml" to the "slide1.xml" created above.
+Replace `./slide/ppt/slides/slide1.xml` to the `slide1.xml` created above. 
 
-Archive and commpress all files in a zip file, then change filename extension ".zip" to ".pptx".
+Archive and commpress all files in a zip file, then change the filename extension `.zip` to `.pptx`. 
+(Care the structure of the zip file.)
 
 You can see geometries on a office software, e.g. Microsoft PowerPoint.
 
