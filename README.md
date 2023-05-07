@@ -1,6 +1,8 @@
 # geojson2presentation
 GeoJSON を PowerPoint のスライドへ変換するツール。
 
+解説記事/blog（Qiita）→ https://qiita.com/mg_kudo/items/7a365984c00124ded8de
+
 Sample(shown on Microsoft PowerPoint)
 ![sample slide](sample.png "sample slide")
 
