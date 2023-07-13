@@ -313,7 +313,7 @@ const mkSlide = (dataArray) => {
   
   // 元データの地理的領域はここで検証可能
   // ZLが与えられれば、北西のコーナーの座標がわかる。
-  const zl = document.getElementById("selectZL").value || 10;
+  const zl = +document.getElementById("selectZL").value || 10;
   const nw = [lon2tiled(lngMin, zl), lat2tiled(latMax, zl)]; 
   
   global.btile = [zl, nw[0], nw[1]]; // タイル番号は整数にしなくても大丈夫
