@@ -12,6 +12,7 @@ Edit `mkSlideXml.js`.
 
 ```JavaScript
 global.zl = 13.5  // 変換したい GeoJSON データの領域に合わせて調整
+global.nwOriginText = "135.5,35,5"  // スライドの左上の原点とする経緯度
 const slide = mkSlide(["./data.json"]);  // 変換したいファイルへのパス（配列で複数指定可）
 ```
 
