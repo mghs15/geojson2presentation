@@ -314,7 +314,13 @@ const mkSlide = (dataArray) => {
   // 元データの地理的領域はここで検証可能
   // ZLが与えられれば、北西のコーナーの座標がわかる。
   const zl = +document.getElementById("selectZL").value || 10;
-  const nw = [lon2tiled(lngMin, zl), lat2tiled(latMax, zl)]; 
+  
+  const nwOriginText = document.getElementById("nwLngLat").value || "";
+  const nwOrigin = nwOriginText.match(/^\s*\d+(\.\d+)?\s*,\s*\d+(\.\d+)?\s*$/) ? 
+                   nwOriginText.split(",").map( x => +x ) : null;
+  
+  const nw = nwOrigin ? [lon2tiled(nwOrigin[0], zl), lat2tiled(nwOrigin[1], zl)]
+                      : [lon2tiled(lngMin, zl), lat2tiled(latMax, zl)]; 
   
   global.btile = [zl, nw[0], nw[1]]; // タイル番号は整数にしなくても大丈夫
   
@@ -389,6 +395,7 @@ const mkSlide = (dataArray) => {
     // スタイル設定
     let color = "888888";
     let width = 8000;
+    let title = "その他";
     if(prop){
       //従来版ベクトルタイル用
       if( prop.ftCode >= 3000 && prop.ftCode < 3999 ){
@@ -412,10 +419,24 @@ const mkSlide = (dataArray) => {
       //最適化ベクトルタイル用
       if( prop.vt_code >= 3000 && prop.vt_code < 3999 ){
         // 建物
+        title = "建物";
         color = "99AACC"; width = 4000;
       }else if( prop.vt_code >= 2700 && prop.vt_code < 2799 ){
         // 道路
-        color = "666666";
+        title = "道路";
+        const rdctgSet = {
+          "高速自動車国道等": "339933",
+          "国道": "FF8888",
+          "都道府県道": "EECC11"
+        }
+        
+        if(prop.vt_motorway == 1){
+          color = rdctgSet["高速自動車国道等"];
+          title += "-" + "高速自動車国道等";
+        }else{
+          color = rdctgSet[prop.vt_rdctg] || "666666";
+          title += "-" + prop.vt_rdctg;
+        }
         
         const rnkWidthSet = {
           "3m未満": 1,
@@ -432,19 +453,24 @@ const mkSlide = (dataArray) => {
         
         let rnkWidth = rnkWidthSet[prop.vt_rnkwidth] || 1;
         width = 4000 + 6000 * rnkWidth;
+        title += "-" + prop.vt_rnkwidth;
       }else if( prop.vt_code == 8201 || (prop.vt_code >= 2800 && prop.vt_code < 2899) ){
         // 鉄道
+        title = "鉄道";
         color = (prop.vt_sngldbl && prop.vt_sngldbl != "駅部分")  ? "FF0000" : "FF8888";
         width = (prop.vt_sngldbl && prop.vt_sngldbl == "駅部分")  ? 40000 : 
                 (prop.vt_sngldbl && prop.vt_sngldbl == "複線以上") ? 12000 : width;
       }else if( prop.vt_code >= 1200 && prop.vt_code < 1299 ){
         // 境界
+        title = "境界";
         color = "8866BB";
       }else if( prop.vt_code >= 5000 && prop.vt_code < 5999 ){
         // 水域関係
+        title = "水域";
         color = "0000FF"; width = 12000;
       }else if( prop.vt_code >= 7000 && prop.vt_code < 7999 ){
         // 等高線・地形関係
+        title = "地形";
         color = "559900"; width = 4000;
       }
       
@@ -456,6 +482,7 @@ const mkSlide = (dataArray) => {
         "width": width
       },
       {
+        "title": title,
         "extX": iExtX, 
         "extY": iExtY,
         "offsetX": iMinX,
@@ -587,7 +614,8 @@ body{
   </div>
   <div id="info">
     <div id="infoAddCardButton">
-      <input type="number" id="selectZL" onChange="renderFromList();" value="10">
+      ZL：<input type="number" id="selectZL" onChange="renderFromList();" value="10">
+      左上原点の経緯度：<input type="text" id="nwLngLat" onChange="renderFromList();">
       <input type="file" id="addCard" onChange="addCard();">
     </div>
     <div id="outputTextArea"><textarea id="textBox" rows="30"></textarea></div>
@@ -603,5 +631,3 @@ body{
 
 </body>
 </html>
-
-
