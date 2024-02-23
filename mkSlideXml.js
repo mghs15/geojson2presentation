@@ -17,7 +17,8 @@ const tile2lat  = (y,z) => {
 
 const global = {
   btile: [14, 14623, 6017],
-  zl: 10
+  zl: 10,
+  // nwOriginText: "0,0"
 }
 
 const cvPt = ( xy, info = {} ) => {
@@ -27,13 +28,15 @@ const cvPt = ( xy, info = {} ) => {
    * とりあえず、今は仮置き
    */
   
+  // スライド原点用の計算（単位はタイル座標）
+  // タイル座標は必ずしも整数ではない
   // const ex = 6400800; // 仮置き
   const ext = 12;
   const b = global.btile || [2, 3, 1]; //左上
   const bx = b[1] * Math.pow(2, ext);
   const by = b[2] * Math.pow(2, ext);
   
-  // offset はスライド内座標で与えられることを想定
+  // offset はスライド内座標（EMU）で与えられることを想定
   const ox = info.offsetX || 0;
   const oy = info.offsetY || 0;
   
@@ -41,11 +44,13 @@ const cvPt = ( xy, info = {} ) => {
   const cx = lon2tiled(xy[0], b[0] + ext);
   const cy = lat2tiled(xy[1], b[0] + ext);
   
-  // オフセットを算出
+  // スライド原点からのオフセットを算出
+  // この時点では、まだ単位はタイル座標。
   const dx = Math.abs( cx - bx ); // 大体ZL15で3桁くらい
   const dy = Math.abs( cy - by );
   
-  // 1024 でスライド内で適当な大きさで表示されるようにする。
+  // オブジェクト内原点からのオフセットを算出
+  // スライド内で適当な大きさで表示されるように 1024 をかけて EMU として適当な値にする。
   const X = Math.floor( dx * 1024 - ox );
   const Y = Math.floor( dy * 1024 - oy );
   
@@ -200,13 +205,104 @@ const mkLine = (array, style = {}, info = {}) => {
   
 }
 
+
+const mkPrstGeom = (point, style = {}, info = {}) => {
+  /* make Line object
+   * [x, y] (point)とスタイルのオブジェクト(style)とその他の情報オブジェクト(info)を受け取り、prstGeom のスライド内オブジェクトを作成する。
+   */
+  
+  // ここで経緯度→タイル→スライド座標
+  const XY = cvPt(point, info);
+  
+  if(!style) style = {};
+  
+  const color = style.color || "FFAAAA";
+  const width = style.width || "8000"; // 5桁前後（3pxで38100）
+  
+  if(!info) info = {};
+  
+  const title = info.title || "自作ラインオブジェクト";
+  const id = info.id || Math.floor(Math.random() * 100000) + 1;
+  
+  const size = info.size || 100000; 
+  const prst = info.prst || "ellipse";
+  // 例： ▲ "triangle", ＋ "mathPlus", × "mathMultiply", ● "ellipse"
+  
+  const offsetX = XY.x - size/2 || 0;
+  const offsetY = XY.y - size/2 || 0;
+  
+  const extX = size;
+  const extY = size;
+  
+  const line = `<p:sp>
+    <p:nvSpPr>
+    <p:cNvPr id="${id}" name="${title}">
+    <a:extLst>
+    <a:ext uri="${id}">
+    <a16:creationId xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main" id="${id}"/>
+    </a:ext>
+    </a:extLst>
+    </p:cNvPr>
+    <p:cNvSpPr/>
+    <p:nvPr/>
+    </p:nvSpPr>
+    
+    <p:spPr>
+      <a:xfrm>
+      <a:off x="${offsetX}" y="${offsetY}"/>
+      <a:ext cx="${extX}" cy="${extY}"/>
+      </a:xfrm>
+      
+      <a:prstGeom prst="${prst}">
+        <a:avLst />
+      </a:prstGeom>
+      
+      <a:solidFill>
+        <a:srgbClr val="${color}"/>
+      </a:solidFill>
+    </p:spPr>
+    
+    <p:style>
+    <a:lnRef idx="2">
+    <a:schemeClr val="accent1">
+    <a:shade val="15000"/>
+    </a:schemeClr>
+    </a:lnRef>
+    <a:fillRef idx="1">
+    <a:schemeClr val="accent1"/>
+    </a:fillRef>
+    <a:effectRef idx="0">
+    <a:schemeClr val="accent1"/>
+    </a:effectRef>
+    <a:fontRef idx="minor">
+    <a:schemeClr val="lt1"/>
+    </a:fontRef>
+    </p:style>
+    <p:txBody>
+    <a:bodyPr rtlCol="0" anchor="ctr"/>
+    <a:lstStyle/>
+    <a:p>
+    <a:pPr algn="ctr"/>
+    <a:endParaRPr kumimoji="1" lang="ja-JP" altLang="en-US"/>
+    </a:p>
+</p:txBody>
+</p:sp>`;
+  
+  return line.replace("\r", "").replace("\n", "").replace(/>\s+</g, "><");
+  
+}
+
+
+
 const mkSlide = (paths) => {
   
   const lines = [];
+  const points = [];
   let lngMin;
   let lngMax;
   let latMin;
   let latMax;
+  
   
   paths.forEach( path => {
     const geojson = require(path);
@@ -228,6 +324,12 @@ const mkSlide = (paths) => {
             lines.push({"geom": lineCoords, "prop": {...f.properties, "isPoly": true } });
           });
         });
+      }else if(f.geometry.type == "MultiPoint"){
+        f.geometry.coordinates.forEach( point => {
+          points.push({"geom": point, "prop": {...f.properties } });
+        });
+      }else if(f.geometry.type == "Point"){
+        points.push({"geom": f.geometry.coordinates, "prop": {...f.properties } });
       }
     });
     
@@ -270,7 +372,39 @@ const mkSlide = (paths) => {
     });
     
   });
-  
+
+  points.forEach( pointInfo => {
+    
+    const p = pointInfo.geom;
+    
+    if(p && typeof(p[0]) == "number" && typeof(p[1]) == "number"){
+      
+      if(lngMin){
+        lngMin = Math.min(p[0], lngMin);
+      }else{
+        lngMin = p[0];
+      }
+      
+      if(lngMax){
+        lngMax = Math.max(p[0], lngMax);
+      }else{
+        lngMax = p[0];
+      }
+      
+      if(latMin){
+        latMin = Math.min(p[1], latMin);
+      }else{
+        latMin = p[1];
+      }
+      
+      if(latMax){
+        latMax = Math.max(p[1], latMax);
+      }else{
+        latMax = p[1];
+      }
+    }
+    
+  });
   // console.log(xlist);
   // console.log(ylist);
   
@@ -278,7 +412,13 @@ const mkSlide = (paths) => {
   // 元データの地理的領域はここで検証可能
   // ZLが与えられれば、北西のコーナーの座標がわかる。
   const zl = global.zl;
-  const nw = [lon2tiled(lngMin, zl), lat2tiled(latMax, zl)]; 
+  
+  const nwOriginText = global.nwOriginText;
+  const nwOrigin = nwOriginText && nwOriginText.match(/^\s*\d+(\.\d+)?\s*,\s*\d+(\.\d+)?\s*$/) ? 
+                   nwOriginText.split(",").map( x => +x ) : null;
+  
+  const nw = nwOrigin ? [lon2tiled(nwOrigin[0], zl), lat2tiled(nwOrigin[1], zl)]
+                      : [lon2tiled(lngMin, zl), lat2tiled(latMax, zl)]; 
   
   global.btile = [zl, nw[0], nw[1]]; // タイル番号は整数にしなくても大丈夫
   
@@ -342,11 +482,18 @@ const mkSlide = (paths) => {
     const iExtX = Math.floor( iMaxX - iMinX );
     const iExtY = Math.floor( iMaxY - iMinY );
     
-    //console.log(maxX, iMaxX, maxY, iMaxY, iExtX, iExtY);
+    /*
+    console.log(
+      lngMin, lngMax, latMin, latMax,
+      iLngMin, iLngMax, iLatMin, iLatMax,
+      maxX, iMaxX, maxY, iMaxY, iExtX, iExtY
+    );
+    */
     
     // スタイル設定
     let color = "888888";
     let width = 8000;
+    let title = "その他";
     if(prop){
       //従来版ベクトルタイル用
       if( prop.ftCode >= 3000 && prop.ftCode < 3999 ){
@@ -370,10 +517,24 @@ const mkSlide = (paths) => {
       //最適化ベクトルタイル用
       if( prop.vt_code >= 3000 && prop.vt_code < 3999 ){
         // 建物
+        title = "建物";
         color = "99AACC"; width = 4000;
       }else if( prop.vt_code >= 2700 && prop.vt_code < 2799 ){
         // 道路
-        color = "666666";
+        title = "道路";
+        const rdctgSet = {
+          "高速自動車国道等": "339933",
+          "国道": "FF8888",
+          "都道府県道": "EECC11"
+        }
+        
+        if(prop.vt_motorway == 1){
+          color = rdctgSet["高速自動車国道等"];
+          title += "-" + "高速自動車国道等";
+        }else{
+          color = rdctgSet[prop.vt_rdctg] || "666666";
+          title += "-" + prop.vt_rdctg;
+        }
         
         const rnkWidthSet = {
           "3m未満": 1,
@@ -390,19 +551,24 @@ const mkSlide = (paths) => {
         
         let rnkWidth = rnkWidthSet[prop.vt_rnkwidth] || 1;
         width = 4000 + 6000 * rnkWidth;
+        title += "-" + prop.vt_rnkwidth;
       }else if( prop.vt_code == 8201 || (prop.vt_code >= 2800 && prop.vt_code < 2899) ){
         // 鉄道
+        title = "鉄道";
         color = (prop.vt_sngldbl && prop.vt_sngldbl != "駅部分")  ? "FF0000" : "FF8888";
         width = (prop.vt_sngldbl && prop.vt_sngldbl == "駅部分")  ? 40000 : 
                 (prop.vt_sngldbl && prop.vt_sngldbl == "複線以上") ? 12000 : width;
       }else if( prop.vt_code >= 1200 && prop.vt_code < 1299 ){
         // 境界
+        title = "境界";
         color = "8866BB";
       }else if( prop.vt_code >= 5000 && prop.vt_code < 5999 ){
         // 水域関係
+        title = "水域";
         color = "0000FF"; width = 12000;
       }else if( prop.vt_code >= 7000 && prop.vt_code < 7999 ){
         // 等高線・地形関係
+        title = "地形";
         color = "559900"; width = 4000;
       }
       
@@ -414,10 +580,43 @@ const mkSlide = (paths) => {
         "width": width
       },
       {
+        "title": title,
         "extX": iExtX, 
         "extY": iExtY,
         "offsetX": iMinX,
         "offsetY": iMinY
+    });
+      
+    if(ch.match("NaN")){
+      return; // 応急処置
+    }
+    xs += ch;
+  });
+  
+
+  points.forEach( pointInfo => {
+    
+    const point = pointInfo.geom;
+    const prop = pointInfo.prop;
+    
+    // スタイル設定
+    let color = "FF0000";
+    let width = 8000;
+    let title = "POI";
+    
+    const size = 200000;
+    const prst = "mathMultiply";
+    // 例： ▲ "triangle", ＋ "mathPlus", × "mathMultiply", ● "ellipse"
+    
+    // ここで経緯度→タイル→スライド座標
+    const ch = mkPrstGeom(point, {
+        "color": color,
+        "width": width
+      },
+      {
+        "title": title,
+        "size": size,
+        "prst": prst
     });
       
     if(ch.match("NaN")){
@@ -470,8 +669,9 @@ const mkSlide = (paths) => {
 }
 
 
+
 //入力： array of paths to GeoJSON files (拡張子は.json)
-global.zl = 13.5
+global.zl = 13;
 const slide = mkSlide(["./data.json"]);
 console.log(slide);
 
